@@ -9,243 +9,249 @@
 **Stack:** Python 3.14 · Streamlit · SQLAlchemy 2.0 (SQLite) · APScheduler · Pydantic · curl_cffi + BeautifulSoup ·
 Playwright · httpx · pandas · Claude Code CLI · pytest · mypy · ruff · pre-commit · GitHub Actions
 
-Osobisty asystent wyszukiwania mieszkań. Aplikacja cyklicznie sprawdza nowe ogłoszenia sprzedaży
-mieszkań na Otodom.pl, pobiera ich pełne dane i ocenia każde z nich przez **Claude Code** (Anthropic)
-według Twoich kryteriów – w skali 0–100, z listą zalet, wad/red flags, podsumowaniem i kontrolą
-spójności opisu z filtrami. O najlepszych ofertach i obniżkach cen powiadamia od razu na telefon.
+A personal flat-hunting assistant. The app periodically checks new flat-for-sale listings on
+[Otodom.pl](https://www.otodom.pl) (Poland's largest real-estate portal), downloads their full details and has
+**Claude Code** (Anthropic) score each one against your criteria – on a 0–100 scale, with a list of pros,
+cons/red flags, a summary and a check of whether the description is consistent with your filters. It notifies
+you on your phone about the best offers and price drops right away.
 
-## Funkcje
+> The user interface, AI prompts and notifications are in Polish, as the app targets the Polish market.
+> Code, comments and logs are in English.
 
-- **Filtry Otodom**: lokalizacja (+ promień), cena, powierzchnia, liczba pokoi, maks. cena za m²,
-  rynek – albo dowolny własny URL wyszukiwania skopiowany z Otodom.
-- **Kryteria oceny AI** z wagami *Niska / Średnia / Wysoka / Krytyczna* (edytowalna tabela).
-- **Automatyczne skanowanie w tle** (APScheduler) co 15 min – 12 godz. oraz przycisk
-  „Skanuj i przeanalizuj teraz”.
-- **Brak dublowania**: ogłoszenia już zapisane w bazie nie są ponownie pobierane ani wysyłane do AI.
-- **Powiadomienia** (ntfy.sh, Discord, Telegram) o nowych ofertach z oceną powyżej progu (domyślnie 80)
-  i o **obniżkach cen** zapisanych ofert.
-- **Wykrywanie duplikatów** – to samo mieszkanie wystawione przez kilka agencji jest pokazywane jako
-  jedna karta z listą powiązanych ogłoszeń.
-- **Odległość i czas dojazdu** do wybranego adresu (praca, szkoła…) – na kartach, w eksporcie
-  i w prompcie AI.
-- **Bez klucza API** – oceny wykonuje zainstalowany i zalogowany Claude Code w ramach Twojej subskrypcji.
-- **Dzienny limit tokenów AI** – skanowanie nie zużyje całego limitu subskrypcji.
-- **Dashboard**: sortowanie (ocena, cena, cena/m², data), filtr minimalnej oceny, ulubione,
-  odrzucone, „skontaktowano”, archiwum odrzuconych, **eksport wybranych ofert do Excela**.
-- **Skrypty CLI**: ponowna ocena ofert i eksport raportów do `.xlsx` / `.csv`.
+## Features
 
-## Wymagania
+- **Otodom filters**: location (+ radius), price, area, number of rooms, max price per m², primary/secondary
+  market – or any custom search URL copied from Otodom.
+- **AI scoring criteria** with *Low / Medium / High / Critical* weights (editable table).
+- **Automatic background scanning** (APScheduler) every 15 min – 12 h, plus a "scan and analyse now" button.
+- **No duplicate work**: listings already stored in the database are never downloaded or sent to the AI again.
+- **Notifications** (ntfy.sh, Discord, Telegram) about new offers scoring above a threshold (default 80) and
+  about **price drops** of saved offers.
+- **Duplicate detection** – the same flat listed by several agencies is shown as one card with a list of the
+  related listings.
+- **Distance and commute time** to a chosen address (work, school…) – on the cards, in exports and in the
+  AI prompt.
+- **No API key** – scoring is done by your installed, logged-in Claude Code within your subscription.
+- **Daily AI token limit** – scanning will not burn through your whole subscription quota.
+- **Dashboard**: sorting (score, price, price/m², date), minimum score filter, favourites, rejected,
+  "contacted", archive of rejected offers, **export of selected offers to Excel**.
+- **CLI scripts**: re-scoring offers and exporting reports to `.xlsx` / `.csv`.
+
+## Requirements
 
 - Python 3.14+
-- [Claude Code](https://claude.com/claude-code) zainstalowany i zalogowany na konto z subskrypcją Claude
-  (`claude auth login`). Klucz API nie jest potrzebny – bez działającego Claude Code oferty są pobierane,
-  ale nie oceniane.
+- [Claude Code](https://claude.com/claude-code) installed and logged in to an account with a Claude subscription
+  (`claude auth login`). No API key is needed – without a working Claude Code, offers are downloaded but not
+  scored.
 
-## Instalacja
+## Installation
 
 ```bash
+git clone https://github.com/michalw387/otodom-analyzer.git
 cd otodom-analyzer
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# Opcjonalnie: przeglądarka używana awaryjnie, gdy Otodom zablokuje zapytania (HTTP 403)
+# Optional: browser used as a fallback when Otodom blocks requests (HTTP 403)
 playwright install chromium
 
-claude auth login                  # jeśli Claude Code nie jest jeszcze zalogowany
-cp .env.example .env               # opcjonalnie: powiadomienia, ścieżka do claude
+claude auth login                  # if Claude Code is not logged in yet
+cp .env.example .env               # optional: notifications, path to claude
 ```
 
-Wartości z `.env`:
+Values in `.env`:
 
-| Zmienna | Znaczenie |
+| Variable | Meaning |
 |---|---|
-| `CLAUDE_CLI_PATH` | opcjonalnie: pełna ścieżka do `claude`, gdy nie ma go w `PATH` procesu aplikacji |
-| `NOTIFY_WEBHOOK_URL` | URL tematu ntfy (`https://ntfy.sh/twoj-temat`) lub webhooka Discord |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | bot Telegram (token od @BotFather) i ID czatu |
-| `OTODOM_DB_PATH` | opcjonalnie: inna ścieżka bazy (domyślnie `data/otodom.db`) |
+| `CLAUDE_CLI_PATH` | optional: full path to `claude` when it is not on the app process's `PATH` |
+| `NOTIFY_WEBHOOK_URL` | ntfy topic URL (`https://ntfy.sh/your-topic`) or a Discord webhook URL |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Telegram bot (token from @BotFather) and chat ID |
+| `OTODOM_DB_PATH` | optional: custom database path (default `data/otodom.db`) |
 
-Ustawienia powiadomień możesz też podać w aplikacji (zakładka **Ustawienia i Kryteria**) – wartość
-zapisana w aplikacji ma pierwszeństwo przed `.env`. `ANTHROPIC_API_KEY` z `.env` jest ignorowany i nigdy
-nie trafia do Claude Code, więc oceny nie są rozliczane jako płatne API.
+Notification settings can also be entered in the app (the **Ustawienia i Kryteria** / Settings & Criteria tab) –
+a value saved in the app takes precedence over `.env`. `ANTHROPIC_API_KEY` from `.env` is ignored and never
+passed to Claude Code, so scoring is never billed as paid API usage.
 
-## Uruchomienie
+## Running
 
 ```bash
 ./start.sh
 ```
 
-Skrypt `start.sh` przechodzi do katalogu projektu, aktywuje `.venv` i uruchamia `streamlit run app.py`,
-więc działa z dowolnego katalogu (np. `~/projekty/otodom-analyzer/start.sh`). Dodatkowe
-argumenty trafiają do Streamlit, np. `./start.sh --server.port 8502`.
+`start.sh` changes to the project directory, activates `.venv` and runs `streamlit run app.py`, so it works from
+any directory (e.g. `~/projects/otodom-analyzer/start.sh`). Extra arguments are passed to Streamlit, e.g.
+`./start.sh --server.port 8502`.
 
-Aplikacja otworzy się pod <http://localhost:8501>. Domyślnie nasłuchuje tylko na `localhost`
-(`.streamlit/config.toml`) – uruchamia Claude Code na Twoim koncie i przechowuje dane powiadomień, więc nie wystawiaj jej
-do sieci bez dodatkowego zabezpieczenia.
+The app opens at <http://localhost:8501>. By default it listens on `localhost` only (`.streamlit/config.toml`) –
+it runs Claude Code on your account and stores your notification credentials, so don't expose it to the network
+without additional protection.
 
-### Pierwsze kroki
+### First steps
 
-1. Otwórz **⚙️ Ustawienia i Kryteria**.
-2. Ustaw lokalizację – to fragment adresu wyników Otodom po `/mieszkanie/`, np.
-   `mazowieckie/warszawa/warszawa/warszawa/mokotow` albo `malopolskie/krakow/krakow/krakow`.
-   Możesz też wkleić cały URL wyszukiwania w polu „Własny URL” – wtedy pozostałe filtry są pomijane.
-3. Dopasuj kryteria i wagi. Opcjonalnie podaj **adres docelowy** i sposób dojazdu oraz skonfiguruj
-   **powiadomienia** (przycisk „Przetestuj powiadomienie” wysyła wiadomość próbną bez zapisywania).
-4. Wybierz model, częstotliwość i dzienny limit tokenów, kliknij **Zapisz ustawienia**. W sekcji
-   **🩺 Diagnostyka** przycisk „Sprawdź Claude Code” weryfikuje `claude --version` i zalogowanie.
-5. Kliknij **🔍 Skanuj i przeanalizuj teraz**. Wyniki pojawią się w zakładce **🏆 Najlepsze Oferty**.
+1. Open **⚙️ Ustawienia i Kryteria** (Settings & Criteria).
+2. Set the location – the part of an Otodom results URL after `/mieszkanie/`, e.g.
+   `mazowieckie/warszawa/warszawa/warszawa/mokotow` or `malopolskie/krakow/krakow/krakow`.
+   You can also paste a whole search URL into the **Własny URL** (custom URL) field – the other filters are then
+   ignored.
+3. Adjust the criteria and weights. Optionally enter a **destination address** and means of transport, and set up
+   **notifications** (the **Przetestuj powiadomienie** button sends a test message without saving).
+4. Choose the model, scan frequency and daily token limit, then click **Zapisz ustawienia** (Save settings).
+   In the **🩺 Diagnostyka** (Diagnostics) section, **Sprawdź Claude Code** checks `claude --version` and the login.
+5. Click **🔍 Skanuj i przeanalizuj teraz** (Scan and analyse now). Results appear in the
+   **🏆 Najlepsze Oferty** (Best offers) tab.
 
-## Powiadomienia
+## Notifications
 
-| Kanał | Konfiguracja |
+| Channel | Setup |
 |---|---|
-| **ntfy.sh** | Zainstaluj aplikację ntfy, zasubskrybuj temat o trudnej do zgadnięcia nazwie i wpisz `https://ntfy.sh/<temat>` (działa też własny serwer ntfy). Temat na ntfy.sh jest publiczny dla każdego, kto zna nazwę. |
-| **Discord** | Ustawienia kanału → Integracje → Webhooki → skopiuj URL webhooka. |
-| **Telegram** | Utwórz bota u @BotFather (token), napisz do niego wiadomość i odczytaj swój chat ID (np. przez @userinfobot). |
+| **ntfy.sh** | Install the ntfy app, subscribe to a hard-to-guess topic and enter `https://ntfy.sh/<topic>` (a self-hosted ntfy server works too). A topic on ntfy.sh is public to anyone who knows its name. |
+| **Discord** | Channel settings → Integrations → Webhooks → copy the webhook URL. |
+| **Telegram** | Create a bot with @BotFather (token), send it a message and read your chat ID (e.g. via @userinfobot). |
 
-- **Nowa oferta**: wysyłana, gdy świeżo oceniona oferta osiągnie próg. Zawiera tytuł, cenę, metraż, ocenę,
-  najważniejsze zalety i wady oraz link. Każde mieszkanie zgłaszane jest raz – ponowna ocena ani ta sama
-  oferta od innej agencji nie wywołują kolejnego powiadomienia.
-- **Obniżka ceny**: „📉 Obniżka ceny! Z 700 000 zł na 650 000 zł”. Ceny znanych ofert są porównywane przy
-  każdym skanowaniu na podstawie listy wyników. Dodatkowo **obserwowane oferty** (ulubione,
-  skontaktowane i z oceną ≥ progu powiadomień), które zniknęły już z pierwszych stron wyników, są
-  sprawdzane bezpośrednio – maks. 10 na skanowanie, każda najwyżej raz na dobę.
+- **New offer**: sent when a freshly scored offer reaches the threshold. Contains the title, price, area, score,
+  key pros and cons, and a link. Each flat is reported once – re-scoring it or the same offer from another agency
+  does not trigger another notification.
+- **Price drop**: "📉 Obniżka ceny! Z 700 000 zł na 650 000 zł" (price drop from 700,000 to 650,000 PLN). Prices of
+  known offers are compared on every scan using the results list. In addition, **watched offers** (favourites,
+  contacted, and those scoring at or above the notification threshold) that have dropped off the first result
+  pages are checked directly – at most 10 per scan, each at most once a day.
 
-## Duplikaty
+## Duplicates
 
-Dwie oferty uznawane są za to samo mieszkanie, gdy mają to samo piętro, powierzchnię różniącą się
-o maks. 1 m², cenę różniącą się o mniej niż 5% i leżą w tym samym miejscu: na tej samej ulicy (a gdy
-któraś jej nie podaje – w tej samej dzielnicy), w tym samym mieście i nie dalej niż 1,5 km od siebie
-(według współrzędnych z Otodom). Grupa jest pokazywana jako karta najwcześniej znalezionej oferty
-z rozwijaną listą pozostałych ogłoszeń (cena, ocena, link). Oferty zapisane przed tą wersją nie mają
-ulicy ani dzielnicy – porównywana jest dla nich pełna lokalizacja.
+Two offers are considered the same flat when they are on the same floor, their area differs by at most 1 m², their
+price differs by less than 5% and they are in the same place: on the same street (or, when one of them doesn't
+give it, in the same district), in the same city and no more than 1.5 km apart (based on Otodom coordinates).
+A group is shown as the card of the earliest found offer with an expandable list of the other listings (price,
+score, link). Offers saved before this version have no street or district – their full location is compared
+instead.
 
-## Dojazd
+## Commute
 
-Współrzędne mieszkań pochodzą z Otodom (część ogłoszeń podaje lokalizację przybliżoną). Adres docelowy
-jest geokodowany przez OpenStreetMap (Nominatim) tylko przy zapisie ustawień. Odległość liczona jest
-w linii prostej, a czas dojazdu to **szacunek** (trasa ≈ 1,3 × odległość, średnia prędkość zależna od
-środka transportu) – nie korzysta z rozkładów jazdy ani nawigacji. Wartość trafia też do promptu AI,
-więc po zmianie adresu warto użyć „Oceń ponownie wszystkie oferty”.
+Flat coordinates come from Otodom (some listings give an approximate location). The destination address is
+geocoded with OpenStreetMap (Nominatim) only when the settings are saved. Distance is measured in a straight line
+and the commute time is an **estimate** (route ≈ 1.3 × distance, average speed depending on the means of
+transport) – it doesn't use timetables or navigation. The value is also included in the AI prompt, so after
+changing the address it's worth using **Oceń ponownie wszystkie oferty** (re-score all offers).
 
-## Limit tokenów
+## Token limit
 
-Każde wywołanie Claude Code jest zapisywane w bazie wraz z liczbą tokenów (wejście, wyjście, cache).
-Gdy dzisiejsze zużycie osiągnie **dzienny limit** (domyślnie 100 000, `0` = bez limitu), oceny są
-wstrzymywane do północy, a oferty czekają w kolejce. Limit sprawdzany jest przed każdą oceną, więc może
-zostać przekroczony najwyżej o jedno zapytanie. Zużycie widać w pasku statusu.
+Every Claude Code run is stored in the database with its token counts (input, output, cache). When today's usage
+reaches the **daily limit** (default 100,000, `0` = no limit), scoring is paused until midnight and offers wait in
+a queue. The limit is checked before each evaluation, so it can be exceeded by at most one request. Usage is
+shown in the status bar.
 
-## Skrypty CLI
+## CLI scripts
 
 ```bash
-# Ponowna ocena (np. po zmianie kryteriów lub promptu) – domyślnie wszystkie nieodrzucone oferty
+# Re-score (e.g. after changing criteria or the prompt) – by default all non-rejected offers
 python scripts/reevaluate.py
 python scripts/reevaluate.py --unscored --limit 20 --yes
 python scripts/reevaluate.py --ids 68562677 68559126 --model claude-haiku-5-5
 python scripts/reevaluate.py --min-score 70 --notify --ignore-token-limit
 
-# Eksport najlepszych ofert (domyślnie ocena ≥ 75 → reports/oferty-RRRR-MM-DD.xlsx)
+# Export the best offers (default score ≥ 75 → reports/oferty-YYYY-MM-DD.xlsx)
 python scripts/export_reports.py
 python scripts/export_reports.py --min-score 60 -o oferty.csv
 python scripts/export_reports.py --favorites --include-rejected
 ```
 
-`reevaluate.py` respektuje dzienny limit tokenów (chyba że podasz `--ignore-token-limit`) i domyślnie nie
-wysyła powiadomień (`--notify`, aby je włączyć). Nie uruchamiaj go w trakcie skanowania w aplikacji –
-oba procesy mogłyby ocenić te same oferty. CSV używa średnika i przecinka dziesiętnego, więc otwiera się
-poprawnie w polskim Excelu. Teksty z ogłoszeń są w eksportach zabezpieczone przed wstrzyknięciem formuł.
+`reevaluate.py` respects the daily token limit (unless you pass `--ignore-token-limit`) and doesn't send
+notifications by default (use `--notify` to enable them). Don't run it while the app is scanning – both processes
+could score the same offers. CSV files use a semicolon separator and a decimal comma, so they open correctly in
+Polish Excel. Listing texts in exports are protected against formula injection.
 
-## Jak to działa
+## How it works
 
-1. **Wyszukiwanie** – `scraper/otodom.py` buduje URL wyników posortowanych od najnowszych i czyta dane
-   z osadzonego w stronie JSON-a `__NEXT_DATA__` (Next.js). Zapytania wysyła `curl_cffi`, który odtwarza
-   odcisk TLS i nagłówki prawdziwej przeglądarki (Chrome / Edge / Safari / Firefox, losowo na skanowanie),
-   z przerwami 1,5–4 s, ponawianiem przy 429/5xx i awaryjnie Playwright przy 403. Sprawdzane są maks.
-   2 strony wyników; skan kończy się wcześniej, gdy strona nie zawiera nic nowego.
-2. **Zmiany cen i nowe oferty** – ceny znanych ofert są porównywane z listą wyników (i ponownie sprawdzane
-   dla obserwowanych ofert); nowe ogłoszenia (maks. 30 na skan) są pobierane w całości.
-3. **Duplikaty** – po każdym skanie grupy duplikatów są przeliczane dla całej bazy.
-4. **Ocena AI** – `ai/evaluator.py` uruchamia `claude -p` (Claude Code w trybie nieinteraktywnym) z promptem
-   systemowym zawierającym kryteria i ogłoszeniem przekazanym przez stdin. Odpowiedź musi być czystym obiektem
-   JSON – pilnuje tego schemat `--json-schema` i walidacja Pydantic. Claude Code działa **bez żadnych narzędzi**
-   (`--tools ""`), hooków, pluginów i serwerów MCP, bo opis ogłoszenia pisze obca osoba: nie może on nakłonić
-   Claude do wykonania czegokolwiek na Twoim komputerze (dlatego aplikacja nigdy nie używa
-   `--dangerously-skip-permissions`). Błąd jednej oferty jest ponawiany przy kolejnych skanach (maks. 3 próby);
-   brak Claude Code, brak zalogowania czy wyczerpany limit subskrypcji przerywają ocenianie do następnego skanu.
-5. **Powiadomienia** – patrz wyżej.
+1. **Search** – `scraper/otodom.py` builds a results URL sorted by newest and reads the data from the page's
+   embedded `__NEXT_DATA__` JSON (Next.js). Requests are sent with `curl_cffi`, which reproduces the TLS
+   fingerprint and headers of a real browser (Chrome / Edge / Safari / Firefox, picked at random per scan), with
+   1.5–4 s delays, retries on 429/5xx and a Playwright fallback on 403. At most 2 result pages are checked; the
+   scan stops early when a page contains nothing new.
+2. **Price changes and new offers** – prices of known offers are compared with the results list (and re-checked
+   for watched offers); new listings (at most 30 per scan) are downloaded in full.
+3. **Duplicates** – after each scan, duplicate groups are recalculated for the whole database.
+4. **AI scoring** – `ai/evaluator.py` runs `claude -p` (Claude Code in non-interactive mode) with a system prompt
+   containing the criteria and the listing passed on stdin. The answer must be a plain JSON object – enforced by
+   the `--json-schema` option and Pydantic validation. Claude Code runs **without any tools** (`--tools ""`),
+   hooks, plugins or MCP servers, because listing descriptions are written by strangers: a description must not
+   be able to make Claude do anything on your computer (which is why the app never uses
+   `--dangerously-skip-permissions`). A failure for a single offer is retried on later scans (at most 3 attempts);
+   a missing Claude Code, a missing login or an exhausted subscription quota stop scoring until the next scan.
+5. **Notifications** – see above.
 
-Logika skanu jest w `services/scanner.py` i jest wspólna dla harmonogramu i skryptów. Harmonogram
-działa wewnątrz procesu Streamlit – skanowanie trwa, dopóki działa `streamlit run`. Uruchamiaj jedną
-instancję aplikacji na jedną bazę. Baza z poprzedniej wersji jest aktualizowana automatycznie przy starcie
-(nowe kolumny i tabele), bez utraty danych.
+The scan logic lives in `services/scanner.py` and is shared by the scheduler and the scripts. The scheduler runs
+inside the Streamlit process – scanning continues as long as `streamlit run` is running. Run one app instance per
+database. A database from an earlier version is upgraded automatically on startup (new columns and tables)
+without data loss.
 
-## Modele i limity subskrypcji
+## Models and subscription limits
 
 | Model | ID (`claude --model`) |
 |---|---|
-| Claude Sonnet 5.5 (domyślny) | `claude-sonnet-5-5` |
-| Claude Haiku 5.5 (oszczędniejszy) | `claude-haiku-5-5` |
+| Claude Sonnet 5.5 (default) | `claude-sonnet-5-5` |
+| Claude Haiku 5.5 (cheaper) | `claude-haiku-5-5` |
 
-Oceny nie są płatne osobno – zużywają limit Twojej subskrypcji Claude (ten sam, z którego korzystasz
-w Claude Code). Jedna ocena to ok. 10–15 tys. tokenów (Claude Code dodaje własny kontekst) i trwa ok. 10 s
-na Sonnecie. Na planie Pro skanowanie wielu ofert może szybko zużyć limit okna użycia – wtedy aplikacja
-wstrzymuje oceny do następnego skanowania. Haiku zużywa limit wolniej. Dzienny limit tokenów
-(domyślnie 100 000, czyli ok. 8–10 ocen) dodatkowo ogranicza zużycie przez skanowanie.
+Scoring isn't billed separately – it uses your Claude subscription quota (the same one you use in Claude Code).
+One evaluation takes about 10–15k tokens (Claude Code adds its own context) and about 10 s on Sonnet. On the Pro
+plan, scoring many offers can quickly use up the usage window – the app then pauses scoring until the next scan.
+Haiku uses the quota more slowly. The daily token limit (default 100,000, i.e. about 8–10 evaluations) further
+caps usage by scanning.
 
-## Testy, typowanie i hook pre-commit
+## Tests, type checking and the pre-commit hook
 
 ```bash
-python -m pytest     # testy nie łączą się z Otodom, Nominatim ani nie uruchamiają prawdziwego claude
-mypy                 # sprawdzenie typów (konfiguracja w mypy.ini)
+python -m pytest     # tests never contact Otodom or Nominatim and never run the real claude
+mypy                 # type check (configured in mypy.ini)
 
-.venv/bin/pre-commit install            # raz po sklonowaniu repozytorium
-.venv/bin/pre-commit run --all-files    # ręczne uruchomienie wszystkich hooków
+.venv/bin/pre-commit install            # once after cloning the repository
+.venv/bin/pre-commit run --all-files    # run all hooks manually
 ```
 
-Przed każdym `git commit` uruchamiane są automatycznie ([pre-commit](https://pre-commit.com/),
-konfiguracja w `.pre-commit-config.yaml`):
+Before every `git commit` the following run automatically ([pre-commit](https://pre-commit.com/), configured in
+`.pre-commit-config.yaml`):
 
-- porządki w plikach: białe znaki na końcu linii, znak nowej linii na końcu pliku, końce linii LF,
-  poprawność YAML/TOML, konflikty scalania, duże pliki, klucze prywatne;
-- **ruff** – lint kodu (reguły w `ruff.toml`), z automatyczną poprawką tam, gdzie to bezpieczne;
-- **blokada sekretów** – commit z plikiem `.env`, bazą SQLite (`*.db`) lub kluczem API Anthropic
-  (`sk-ant-…`) zostanie odrzucony;
-- **mypy** i **pytest** – uruchamiane z `.venv`, tylko gdy commit zawiera pliki Pythona.
+- file hygiene: trailing whitespace, final newline, LF line endings, valid YAML/TOML, merge conflict markers,
+  large files, private keys;
+- **ruff** – linting (rules in `ruff.toml`), with automatic fixes where safe;
+- **secret blocking** – a commit containing a `.env` file, an SQLite database (`*.db`) or an Anthropic API key
+  (`sk-ant-…`) is rejected;
+- **mypy** and **pytest** – run from `.venv`, only when the commit contains Python files.
 
-Hooki z zewnętrznych repozytoriów mają przypięte wersje; aktualizacja: `.venv/bin/pre-commit autoupdate`.
+Hooks from external repositories have pinned versions; to update them: `.venv/bin/pre-commit autoupdate`.
 
-Te same hooki uruchamia **GitHub Actions** (`.github/workflows/ci.yml`) przy każdym pushu do `main`
-i każdym pull requeście.
+The same hooks run on **GitHub Actions** (`.github/workflows/ci.yml`) on every push to `main` and every pull
+request.
 
-## Struktura projektu
+## Project structure
 
 ```text
 otodom-analyzer/
-├── CLAUDE.md             # Zasady pracy nad projektem dla Claude Code
-├── config.py             # Konfiguracja, zmienne środowiskowe, parametry domyślne
-├── database.py           # Baza SQLite, modele SQLAlchemy, migracje, zapytania
-├── formatting.py         # Formatowanie kwot, liczb i odmiany po polsku
+├── CLAUDE.md             # Project rules for Claude Code
+├── config.py             # Configuration, environment variables, defaults
+├── database.py           # SQLite database, SQLAlchemy models, migrations, queries
+├── formatting.py         # Polish formatting of amounts, numbers and plurals
 ├── scraper/
-│   ├── otodom.py         # Budowa URL-i, parsing wyników i ogłoszeń (__NEXT_DATA__)
-│   └── utils.py          # curl_cffi, ponawianie, fallback Playwright
+│   ├── otodom.py         # URL building, parsing of results and listings (__NEXT_DATA__)
+│   └── utils.py          # curl_cffi, retries, Playwright fallback
 ├── ai/
-│   ├── evaluator.py      # Claude Code CLI (claude -p), odpowiedź JSON, tokeny, błędy, diagnostyka
-│   └── prompts.py        # Prompt systemowy i prompt ogłoszenia
+│   ├── evaluator.py      # Claude Code CLI (claude -p), JSON answer, tokens, errors, diagnostics
+│   └── prompts.py        # System prompt and listing prompt
 ├── services/
-│   ├── scanner.py        # Jeden skan: wyszukiwanie, ceny, duplikaty, AI, powiadomienia
-│   ├── duplicates.py     # Wykrywanie duplikatów ofert
-│   ├── geo.py            # Geokodowanie celu, odległość i szacowany dojazd
-│   └── export.py         # Eksport do Excela / CSV
+│   ├── scanner.py        # One scan: search, prices, duplicates, AI, notifications
+│   ├── duplicates.py     # Duplicate offer detection
+│   ├── geo.py            # Destination geocoding, distance and estimated commute
+│   └── export.py         # Excel / CSV export
 ├── notifications/
 │   └── webhook.py        # ntfy.sh, Discord, Telegram
 ├── scripts/
-│   ├── reevaluate.py     # Ponowna ocena AI zapisanych ofert
-│   └── export_reports.py # Eksport najlepszych ofert do .xlsx / .csv
-├── scheduler.py          # APScheduler: cykliczne i ręczne skanowanie
-├── app.py                # Interfejs Streamlit
-├── start.sh              # Uruchomienie aplikacji (venv + streamlit run)
-├── tests/                # Testy pytest
-├── .github/workflows/ci.yml  # CI: pre-commit (ruff, mypy, pytest) na GitHub Actions
+│   ├── reevaluate.py     # Re-scoring saved offers with AI
+│   └── export_reports.py # Exporting the best offers to .xlsx / .csv
+├── scheduler.py          # APScheduler: periodic and manual scans
+├── app.py                # Streamlit UI
+├── start.sh              # App launcher (venv + streamlit run)
+├── tests/                # pytest tests
+├── .github/workflows/ci.yml  # CI: pre-commit (ruff, mypy, pytest) on GitHub Actions
 ├── .streamlit/config.toml
 ├── .env.example
 ├── .pre-commit-config.yaml
@@ -256,19 +262,18 @@ otodom-analyzer/
 └── LICENSE
 ```
 
-## Uwagi
+## Notes
 
-- **Korzystaj z umiarem.** Regulamin Otodom może ograniczać automatyczne pobieranie treści.
-  Aplikacja jest przeznaczona do osobistego użytku – nie skracaj interwału poniżej potrzeb
-  i nie zwiększaj limitów stron.
-- **Zmiany po stronie Otodom.** Jeśli Otodom zmieni strukturę strony lub zacznie blokować
-  zapytania, w pasku statusu pojawi się błąd skanowania (np. „brak danych `__NEXT_DATA__`” lub
-  „HTTP 403”). Przy 403 zainstaluj Chromium dla Playwright (`playwright install chromium`).
-- **Nominatim** (OpenStreetMap) to darmowa usługa z limitem 1 zapytania na sekundę – aplikacja
-  geokoduje wyłącznie adres docelowy i tylko przy jego zmianie.
-- Ocena AI jest pomocą, a nie wyrocznią – zawsze sprawdź ogłoszenie, księgę wieczystą
-  i mieszkanie osobiście.
+- **Use it responsibly.** Otodom's terms of service may restrict automated downloading of content. The app is
+  intended for personal use – don't shorten the interval beyond what you need and don't raise the page limits.
+- **Changes on Otodom's side.** If Otodom changes its page structure or starts blocking requests, a scan error
+  appears in the status bar (e.g. "brak danych `__NEXT_DATA__`" – missing `__NEXT_DATA__` data – or "HTTP 403").
+  On 403, install Chromium for Playwright (`playwright install chromium`).
+- **Nominatim** (OpenStreetMap) is a free service limited to 1 request per second – the app geocodes only the
+  destination address and only when it changes.
+- The AI score is an aid, not an oracle – always check the listing, the land and mortgage register
+  (*księga wieczysta*) and the flat in person.
 
-## Licencja
+## License
 
 [MIT](LICENSE)
