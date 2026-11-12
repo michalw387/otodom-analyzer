@@ -1,0 +1,18 @@
+streamlit>=1.50
+pandas>=2.0
+openpyxl>=3.1
+pydantic>=2.7
+sqlalchemy>=2.0
+beautifulsoup4>=4.12
+curl_cffi>=0.10
+httpx2>=2.16
+geopy>=2.4
+playwright>=1.50
+apscheduler>=3.10,<4
+python-dotenv>=1.0
+
+# testy, typowanie i hooki git (ruff jest instalowany przez pre-commit)
+pytest>=8.0
+mypy>=1.10
+pandas-stubs
+pre-commit>=4.0

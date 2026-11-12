@@ -1,0 +1,9 @@
+[server]
+# Local-only by default: the app can spend API credits and stores your API key.
+address = "localhost"
+
+[theme]
+primaryColor = "#2e7d32"
+
+[browser]
+gatherUsageStats = false

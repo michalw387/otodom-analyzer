@@ -1,0 +1,49 @@
+# Git hooks run before every commit (https://pre-commit.com/).
+#   One-time setup:  .venv/bin/pre-commit install
+#   Run on demand:   .venv/bin/pre-commit run --all-files
+# mypy and pytest run from the project's .venv, so they see the installed dependencies even when the
+# virtualenv is not activated (e.g. commits from an IDE).
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.2
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+
+  - repo: local
+    hooks:
+      - id: no-secret-files
+        name: block .env and database files
+        language: fail
+        entry: ".env files and SQLite databases must not be committed (they hold API keys and personal data)"
+        files: '(^|/)\.env$|\.(db|sqlite3?)(-wal|-shm)?$'
+      - id: no-anthropic-api-keys
+        name: block Anthropic API keys
+        language: pygrep
+        entry: 'sk-ant-[A-Za-z0-9_-]{20,}'
+      - id: mypy
+        name: mypy
+        language: system
+        entry: .venv/bin/python -m mypy
+        types: [python]
+        pass_filenames: false
+      - id: pytest
+        name: pytest
+        language: system
+        entry: .venv/bin/python -m pytest -q
+        types: [python]
+        pass_filenames: false

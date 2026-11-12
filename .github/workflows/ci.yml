@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+
+      # The same hooks as before every local commit: hygiene, ruff, secret blocking, mypy, pytest.
+      - name: pre-commit (ruff, mypy, pytest)
+        run: .venv/bin/pre-commit run --all-files --show-diff-on-failure

@@ -1,0 +1,8 @@
+line-length = 120
+target-version = "py314"
+extend-exclude = [".venv"]
+
+[lint]
+select = ["E4", "E7", "E9", "E501", "F", "W", "B", "I", "UP", "RUF", "EXE"]
+# Polish typography (en/em dashes, minus sign, quotes) is intentional in UI texts and prompts.
+allowed-confusables = ["–", "—", "−", "„", "”", "’"]

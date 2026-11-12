@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.env
+data/
+reports/
+.ruff_cache/
+# local Claude Code / agent skill links into .venv (broken in a fresh clone)
+.agents/
+.claude/
